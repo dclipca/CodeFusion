@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:code_fusion/src/settings/settings_controller.dart';
 import 'package:code_fusion/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For clipboard operations
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key, required this.controller}) : super(key: key);
@@ -359,3 +363,9 @@ class _FileListPanelState extends State<FileListPanel> {
     return true; // All files in the folder are selected
   }
 }
+
+// Provider for loading SVG metadata from a JSON file
+final fileSvgIconMetadataProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final jsonString = await rootBundle.loadString('assets/icons/files/metadata.json');
+  return json.decode(jsonString);
+});
