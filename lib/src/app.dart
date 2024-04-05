@@ -49,8 +49,49 @@ class App extends StatelessWidget {
           //Define a light and dark color theme. Then, read the user's
           // preferred ThemeMode (light, dark, or system default) from the
           // SettingsController to display the correct theme.
-          theme: ThemeData(),
-          darkTheme: ThemeData.dark(),
+          // theme: ThemeData(),
+          // darkTheme: ThemeData.dark(),
+
+          theme: ThemeData(
+            // This is the theme for the light theme of your application.
+            primarySwatch: Colors.blue,
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+          ),
+          darkTheme: ThemeData.dark().copyWith(
+            // Override specific properties
+            primaryColor: Colors.green,
+            scaffoldBackgroundColor: const Color(0xff2b2b2b),
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Colors.white),
+              bodyMedium: TextStyle(color: Colors.white),
+              titleMedium: TextStyle(color: Colors.white),
+              titleSmall: TextStyle(color: Colors.white),
+              // Add other text styles as needed to ensure they are white
+            ),
+            iconTheme: const IconThemeData(
+              color: Colors.white, // Make icons white
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.white), // Text color for ElevatedButton
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.white), // Text color for TextButton
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.white), // Text color for OutlinedButton
+              ),
+            ),
+          ),
+
           themeMode: settingsController.themeMode,
 
           // Define a function to handle named routes in order to support
@@ -59,16 +100,19 @@ class App extends StatelessWidget {
             switch (routeSettings.name) {
               case HomeView.routeName:
                 return MaterialPageRoute<void>(
-                  builder: (context) => HomeView(controller: settingsController),
+                  builder: (context) =>
+                      HomeView(controller: settingsController),
                 );
               case SettingsView.routeName:
                 return MaterialPageRoute<void>(
-                  builder: (context) => SettingsView(controller: settingsController),
+                  builder: (context) =>
+                      SettingsView(controller: settingsController),
                 );
               default:
                 // Implement a fallback or error route if you like
                 return MaterialPageRoute<void>(
-                  builder: (context) => const Scaffold(body: Center(child: Text('Page not found!'))),
+                  builder: (context) => const Scaffold(
+                      body: Center(child: Text('Page not found!'))),
                 );
             }
           },
