@@ -334,6 +334,7 @@ class _FileListPanelState extends State<FileListPanel> {
         return Padding(
           padding: EdgeInsets.only(left: leftPadding),
           child: ListTile(
+            dense: true,
             leading: iconWidget,
             title: Text(fileName),
             tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,

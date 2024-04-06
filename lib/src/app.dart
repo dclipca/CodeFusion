@@ -1,5 +1,5 @@
 import 'package:code_fusion/src/settings/settings_view.dart';
-import 'package:code_fusion/src/ui/views/home_view.dart';
+import 'package:code_fusion/src/home_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
