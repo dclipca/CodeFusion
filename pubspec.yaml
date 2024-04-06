@@ -41,5 +41,5 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/icons/files
-    - assets/icons/folders
+    - assets/icons/files/
+    - assets/icons/folders/

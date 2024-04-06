@@ -9,28 +9,55 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as path;
 
-String iconNameFromFileName(String fileName, Map<String, dynamic> svgIconMetadata) {
+String iconNameFromFileName(
+    String fileName, Map<String, dynamic> svgIconMetadata) {
   String extension = fileName.split('.').last.toLowerCase();
   String iconName = svgIconMetadata['defaultIcon']['name']; // Default icon name
   List<dynamic> icons = svgIconMetadata['icons'];
 
   for (var icon in icons) {
-    List<dynamic> fileExtensions = icon['fileExtensions'] as List<dynamic>? ?? [];
+    List<dynamic> fileExtensions =
+        icon['fileExtensions'] as List<dynamic>? ?? [];
     List<dynamic> fileNames = icon['fileNames'] as List<dynamic>? ?? [];
 
-    if (fileExtensions.contains(extension) || fileNames.contains(fileName.toLowerCase())) {
+    if (fileExtensions.contains(extension) ||
+        fileNames.contains(fileName.toLowerCase())) {
       iconName = icon['name'];
-      break; // Found a specific icon, break the loop
+      break; // Found a specific icon
     }
   }
 
   return iconName;
 }
 
-// Example Widget to display an SVG based on the file name
 Widget fileIconWidget(String fileName, Map<String, dynamic> svgIconMetadata) {
   String iconName = iconNameFromFileName(fileName, svgIconMetadata);
   String assetPath = 'assets/icons/files/$iconName.svg';
+
+  return SvgPicture.asset(assetPath, width: 24, height: 24);
+}
+
+String iconNameFromFolderName(
+    Map<String, dynamic> folderSvgIconMetadata, String folderName) {
+  String iconName = folderSvgIconMetadata['defaultIcon']['name'];
+  List<dynamic> icons = folderSvgIconMetadata['icons'];
+
+  for (var icon in icons) {
+    List<dynamic> folderNames = icon['folderNames'] as List<dynamic>? ?? [];
+
+    if (folderNames.contains(folderName.toLowerCase())) {
+      iconName = icon['name'];
+      break;
+    }
+  }
+
+  return iconName;
+}
+
+Widget folderIconWidget(
+    String folderName, Map<String, dynamic> folderSvgIconMetadata) {
+  String iconName = iconNameFromFolderName(folderSvgIconMetadata, folderName);
+  String assetPath = 'assets/icons/folders/$iconName.svg';
 
   return SvgPicture.asset(assetPath, width: 24, height: 24);
 }
@@ -49,23 +76,32 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   List<String> _files = [];
   Set<String> _selectedFiles = {};
-  Map<String, dynamic> _svgIconMetadata = {};
+  Map<String, dynamic> _fileSvgIconMetadata = {};
+  Map<String, dynamic> _folderSvgIconMetadata = {};
   int _estimatedTokenCount = 0;
-  bool _isCopied = false; // Flag to indicate if the code has been copied
-  bool _isLoading =
-      false; // Flag to indicate loading state during async operations
+  bool _isCopied = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSvgIconMetadata();
+    _loadFileSvgIconMetadata();
+    _loadFolderSvgIconMetadata();
   }
 
-  Future<void> _loadSvgIconMetadata() async {
+  Future<void> _loadFileSvgIconMetadata() async {
     final jsonString =
         await rootBundle.loadString('assets/icons/files/metadata.json');
     setState(() {
-      _svgIconMetadata = json.decode(jsonString);
+      _fileSvgIconMetadata = json.decode(jsonString);
+    });
+  }
+
+  Future<void> _loadFolderSvgIconMetadata() async {
+    final jsonString =
+        await rootBundle.loadString('assets/icons/folders/metadata.json');
+    setState(() {
+      _folderSvgIconMetadata = json.decode(jsonString);
     });
   }
 
@@ -96,13 +132,18 @@ class _HomeViewState extends State<HomeView> {
                           await _handleFolderSelected(selectedDirectory);
                         }
                       },
-                      child: const Text('Pick a Directory'),
+                      style: ElevatedButton.styleFrom(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                      ),
+                      child: const Text('Open Project Directory...'),
                     ),
                   )
                 : FileListPanel(
                     files: _files,
                     selectedFiles: _selectedFiles,
-                    svgIconMetadata: _svgIconMetadata,
+                    fileSvgIconMetadata: _fileSvgIconMetadata,
+                    folderSvgIconMetadata: _folderSvgIconMetadata,
                     onSelectionChanged: (Set<String> newSelection) {
                       setState(() {
                         _selectedFiles = newSelection;
@@ -134,7 +175,7 @@ class _HomeViewState extends State<HomeView> {
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                             ),
-                          ) // Show loading indicator
+                          )
                         : Text(
                             'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)'),
               ),
@@ -251,14 +292,16 @@ class _HomeViewState extends State<HomeView> {
 class FileListPanel extends StatefulWidget {
   final List<String> files;
   final Set<String> selectedFiles;
-  final Map<String, dynamic> svgIconMetadata;
+  final Map<String, dynamic> fileSvgIconMetadata;
+  final Map<String, dynamic> folderSvgIconMetadata;
   final Function(Set<String>) onSelectionChanged;
 
   const FileListPanel(
       {Key? key,
       required this.files,
       required this.selectedFiles,
-      required this.svgIconMetadata,
+      required this.fileSvgIconMetadata,
+      required this.folderSvgIconMetadata,
       required this.onSelectionChanged})
       : super(key: key);
 
@@ -280,10 +323,9 @@ class _FileListPanelState extends State<FileListPanel> {
             Directory(filePath).statSync().type ==
                 FileSystemEntityType.directory;
 
-        Widget fileIcon = isDirectory
-            ? Icon(Icons.folder) // Use a folder icon for directories
-            : fileIconWidget(
-                fileName, widget.svgIconMetadata); // Use the function for files
+        Widget iconWidget = isDirectory
+            ? folderIconWidget(fileName, widget.folderSvgIconMetadata)
+            : fileIconWidget(fileName, widget.fileSvgIconMetadata);
 
         double leftPadding = _shouldBeIndented(filePath) ? 20.0 : 0.0;
         bool isSelected = widget.selectedFiles.contains(filePath) ||
@@ -292,7 +334,7 @@ class _FileListPanelState extends State<FileListPanel> {
         return Padding(
           padding: EdgeInsets.only(left: leftPadding),
           child: ListTile(
-            leading: fileIcon,
+            leading: iconWidget,
             title: Text(fileName),
             tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
             onTap: () {
