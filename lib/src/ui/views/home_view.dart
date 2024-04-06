@@ -6,10 +6,34 @@ import 'package:code_fusion/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as path;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as path;
 
+String iconNameFromFileName(String fileName, Map<String, dynamic> svgIconMetadata) {
+  String extension = fileName.split('.').last.toLowerCase();
+  String iconName = svgIconMetadata['defaultIcon']['name']; // Default icon name
+  List<dynamic> icons = svgIconMetadata['icons'];
+
+  for (var icon in icons) {
+    List<dynamic> fileExtensions = icon['fileExtensions'] as List<dynamic>? ?? [];
+    List<dynamic> fileNames = icon['fileNames'] as List<dynamic>? ?? [];
+
+    if (fileExtensions.contains(extension) || fileNames.contains(fileName.toLowerCase())) {
+      iconName = icon['name'];
+      break; // Found a specific icon, break the loop
+    }
+  }
+
+  return iconName;
+}
+
+// Example Widget to display an SVG based on the file name
+Widget fileIconWidget(String fileName, Map<String, dynamic> svgIconMetadata) {
+  String iconName = iconNameFromFileName(fileName, svgIconMetadata);
+  String assetPath = 'assets/icons/files/$iconName.svg';
+
+  return SvgPicture.asset(assetPath, width: 24, height: 24);
+}
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key, required this.controller}) : super(key: key);
@@ -25,10 +49,25 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   List<String> _files = [];
   Set<String> _selectedFiles = {};
+  Map<String, dynamic> _svgIconMetadata = {};
   int _estimatedTokenCount = 0;
   bool _isCopied = false; // Flag to indicate if the code has been copied
   bool _isLoading =
       false; // Flag to indicate loading state during async operations
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSvgIconMetadata();
+  }
+
+  Future<void> _loadSvgIconMetadata() async {
+    final jsonString =
+        await rootBundle.loadString('assets/icons/files/metadata.json');
+    setState(() {
+      _svgIconMetadata = json.decode(jsonString);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +102,7 @@ class _HomeViewState extends State<HomeView> {
                 : FileListPanel(
                     files: _files,
                     selectedFiles: _selectedFiles,
+                    svgIconMetadata: _svgIconMetadata,
                     onSelectionChanged: (Set<String> newSelection) {
                       setState(() {
                         _selectedFiles = newSelection;
@@ -211,12 +251,14 @@ class _HomeViewState extends State<HomeView> {
 class FileListPanel extends StatefulWidget {
   final List<String> files;
   final Set<String> selectedFiles;
+  final Map<String, dynamic> svgIconMetadata;
   final Function(Set<String>) onSelectionChanged;
 
   const FileListPanel(
       {Key? key,
       required this.files,
       required this.selectedFiles,
+      required this.svgIconMetadata,
       required this.onSelectionChanged})
       : super(key: key);
 
@@ -238,29 +280,19 @@ class _FileListPanelState extends State<FileListPanel> {
             Directory(filePath).statSync().type ==
                 FileSystemEntityType.directory;
 
+        Widget fileIcon = isDirectory
+            ? Icon(Icons.folder) // Use a folder icon for directories
+            : fileIconWidget(
+                fileName, widget.svgIconMetadata); // Use the function for files
+
         double leftPadding = _shouldBeIndented(filePath) ? 20.0 : 0.0;
         bool isSelected = widget.selectedFiles.contains(filePath) ||
             (isDirectory && _checkIfFolderSelected(filePath));
 
-        Widget leadingWidget = GestureDetector(
-          onTap: () {
-            if (isDirectory) {
-              _handleFolderTap(filePath);
-            }
-          },
-          child: Icon(
-            _expandedFolders[filePath] ?? false
-                ? Icons.expand_less
-                : Icons.expand_more,
-            color: Theme.of(context).iconTheme.color,
-          ),
-        );
-
         return Padding(
           padding: EdgeInsets.only(left: leftPadding),
           child: ListTile(
-            dense: true,
-            leading: leadingWidget,
+            leading: fileIcon,
             title: Text(fileName),
             tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
             onTap: () {
@@ -331,19 +363,16 @@ class _FileListPanelState extends State<FileListPanel> {
 
   void _toggleFolderSelection(String folderPath) {
     final directory = Directory(folderPath);
-    var entities = directory.listSync(
-        recursive: true); // Consider only direct children if desired
+    var entities = directory.listSync(recursive: true);
     Set<String> newSelection = Set.from(widget.selectedFiles);
 
     bool isCurrentlySelected = _checkIfFolderSelected(folderPath);
     for (var entity in entities) {
       if (entity is File) {
         if (isCurrentlySelected) {
-          newSelection.remove(
-              entity.path); // Deselect if the folder was already selected
+          newSelection.remove(entity.path);
         } else {
-          newSelection.add(entity
-              .path); // Select all files if the folder was not previously selected
+          newSelection.add(entity.path);
         }
       }
     }
@@ -363,9 +392,3 @@ class _FileListPanelState extends State<FileListPanel> {
     return true; // All files in the folder are selected
   }
 }
-
-// Provider for loading SVG metadata from a JSON file
-final fileSvgIconMetadataProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final jsonString = await rootBundle.loadString('assets/icons/files/metadata.json');
-  return json.decode(jsonString);
-});
