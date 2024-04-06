@@ -1,66 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:code_fusion/src/custom_colors.dart';
+import 'package:code_fusion/src/home_view/home_view_utils.dart';
 import 'package:code_fusion/src/settings/settings_controller.dart';
 import 'package:code_fusion/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as path;
-
-String iconNameFromFileName(
-    String fileName, Map<String, dynamic> svgIconMetadata) {
-  String extension = fileName.split('.').last.toLowerCase();
-  String iconName = svgIconMetadata['defaultIcon']['name']; // Default icon name
-  List<dynamic> icons = svgIconMetadata['icons'];
-
-  for (var icon in icons) {
-    List<dynamic> fileExtensions =
-        icon['fileExtensions'] as List<dynamic>? ?? [];
-    List<dynamic> fileNames = icon['fileNames'] as List<dynamic>? ?? [];
-
-    if (fileExtensions.contains(extension) ||
-        fileNames.contains(fileName.toLowerCase())) {
-      iconName = icon['name'];
-      break; // Found a specific icon
-    }
-  }
-
-  return iconName;
-}
-
-Widget fileIconWidget(String fileName, Map<String, dynamic> svgIconMetadata) {
-  String iconName = iconNameFromFileName(fileName, svgIconMetadata);
-  String assetPath = 'assets/icons/files/$iconName.svg';
-
-  return SvgPicture.asset(assetPath, width: 24, height: 24);
-}
-
-String iconNameFromFolderName(
-    Map<String, dynamic> folderSvgIconMetadata, String folderName) {
-  String iconName = folderSvgIconMetadata['defaultIcon']['name'];
-  List<dynamic> icons = folderSvgIconMetadata['icons'];
-
-  for (var icon in icons) {
-    List<dynamic> folderNames = icon['folderNames'] as List<dynamic>? ?? [];
-
-    if (folderNames.contains(folderName.toLowerCase())) {
-      iconName = icon['name'];
-      break;
-    }
-  }
-
-  return iconName;
-}
-
-Widget folderIconWidget(
-    String folderName, Map<String, dynamic> folderSvgIconMetadata) {
-  String iconName = iconNameFromFolderName(folderSvgIconMetadata, folderName);
-  String assetPath = 'assets/icons/folders/$iconName.svg';
-
-  return SvgPicture.asset(assetPath, width: 24, height: 24);
-}
 
 class HomeView extends StatefulWidget {
   const HomeView({Key? key, required this.controller}) : super(key: key);
@@ -74,7 +22,11 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  List<String> _files = [];
+  List<String> _directories = [];
+  Set<String> _expandedDirectories = Set<String>();
+  Map<String, List<String>> _filesByDirectory = {};
+  String _selectedDirectory = '';
+
   Set<String> _selectedFiles = {};
   Map<String, dynamic> _fileSvgIconMetadata = {};
   Map<String, dynamic> _folderSvgIconMetadata = {};
@@ -107,6 +59,7 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
+    final customColors = Theme.of(context).extension<CustomColors>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Directory'),
@@ -122,63 +75,76 @@ class _HomeViewState extends State<HomeView> {
       body: Column(
         children: [
           Expanded(
-            child: _files.isEmpty
-                ? Center(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        String? selectedDirectory =
-                            await FilePicker.platform.getDirectoryPath();
-                        if (selectedDirectory != null) {
-                          await _handleFolderSelected(selectedDirectory);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                      ),
-                      child: const Text('Open Project Directory...'),
-                    ),
-                  )
-                : FileListPanel(
-                    files: _files,
-                    selectedFiles: _selectedFiles,
-                    fileSvgIconMetadata: _fileSvgIconMetadata,
-                    folderSvgIconMetadata: _folderSvgIconMetadata,
-                    onSelectionChanged: (Set<String> newSelection) {
-                      setState(() {
-                        _selectedFiles = newSelection;
-                        _updateEstimatedTokenCount();
-                      });
-                    },
+            child: Row(
+              // Split view for directories and files
+              children: [
+                // Directory List
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    color: customColors?.leftPanelColor ?? Theme.of(context).scaffoldBackgroundColor,
+                    child: _directories.isEmpty
+                        ? Center(
+                            child: ElevatedButton(
+                            onPressed: _addDirectory,
+                            child: const Text("Add Directory"),
+                          ))
+                        : _buildDirectoryList(),
                   ),
+                ),
+                // File List for the Selected Directory
+                Expanded(
+                  flex: 3,
+                  child: _selectedDirectory.isEmpty
+                      ? Center(child: Text('No directory selected'))
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: FileListPanel(
+                                files:
+                                    _filesByDirectory[_selectedDirectory] ?? [],
+                                selectedFiles: _selectedFiles,
+                                fileSvgIconMetadata: _fileSvgIconMetadata,
+                                folderSvgIconMetadata: _folderSvgIconMetadata,
+                                onSelectionChanged: (Set<String> newSelection) {
+                                  setState(() {
+                                    _selectedFiles = newSelection;
+                                    _updateEstimatedTokenCount();
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
           ),
+          // "Copy Code" Button in a fixed position
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _selectedFiles.isNotEmpty
-                    ? _copySelectedFilesToClipboard
-                    : null,
-                child: _isCopied
-                    ? const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check),
-                          Text(' Copied!'),
-                        ],
-                      )
-                    : _isLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)'),
-              ),
+            child: ElevatedButton(
+              onPressed: _selectedFiles.isNotEmpty
+                  ? _copySelectedFilesToClipboard
+                  : null,
+              child: _isCopied
+                  ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check),
+                        SizedBox(width: 8),
+                        Text('Copied!'),
+                      ],
+                    )
+                  : _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ))
+                      : Text(
+                          'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)'),
             ),
           ),
         ],
@@ -186,11 +152,64 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  void _addDirectory() async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory != null) {
+      await _handleFolderSelected(selectedDirectory);
+    }
+  }
+
+  Widget _buildDirectoryList() {
+  return ListView.builder(
+    itemCount: _directories.length,
+    itemBuilder: (context, index) {
+      String directoryPath = _directories[index];
+      bool isExpanded = _expandedDirectories.contains(directoryPath);
+
+      return ListTile(
+        title: Text(path.basename(directoryPath)),
+        trailing: IconButton(
+          icon: isExpanded ? Icon(Icons.expand_less) : Icon(Icons.expand_more),
+          onPressed: () {
+            setState(() {
+              if (isExpanded) {
+                _expandedDirectories.remove(directoryPath);
+              } else {
+                _expandedDirectories.add(directoryPath);
+              }
+            });
+          },
+        ),
+        selected: directoryPath == _selectedDirectory,
+        onTap: () {
+          if (isExpanded) {
+            // If the directory is expanded, collapse it
+            _expandedDirectories.remove(directoryPath);
+          } else {
+            // Expand the directory and optionally load its contents
+            _expandedDirectories.add(directoryPath);
+            // Optional: Load the directory's contents if not already loaded
+          }
+          setState(() {
+            _selectedDirectory = directoryPath;
+          });
+        },
+      );
+    },
+  );
+}
+
   Future<void> _handleFolderSelected(String directory) async {
     setState(() {
       _isLoading = true;
+      if (!_directories.contains(directory)) {
+        _directories.add(directory); // Add the new directory to the list
+      }
+      // Now handle files for the selected directory
+      _selectedDirectory = directory; // Set the selected directory
     });
 
+    // Load files for the newly added directory
     Directory dir = Directory(directory);
     List<String> folders = [];
     List<String> files = [];
@@ -204,7 +223,8 @@ class _HomeViewState extends State<HomeView> {
     }
 
     setState(() {
-      _files = folders..addAll(files);
+      _filesByDirectory[directory] = folders
+        ..addAll(files); // Associate files with their directory
       _isLoading = false;
     });
   }
@@ -297,13 +317,12 @@ class FileListPanel extends StatefulWidget {
   final Function(Set<String>) onSelectionChanged;
 
   const FileListPanel(
-      {Key? key,
+      {super.key,
       required this.files,
       required this.selectedFiles,
       required this.fileSvgIconMetadata,
       required this.folderSvgIconMetadata,
-      required this.onSelectionChanged})
-      : super(key: key);
+      required this.onSelectionChanged});
 
   @override
   _FileListPanelState createState() => _FileListPanelState();

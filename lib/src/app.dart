@@ -1,5 +1,6 @@
+import 'package:code_fusion/src/custom_colors.dart';
 import 'package:code_fusion/src/settings/settings_view.dart';
-import 'package:code_fusion/src/home_view.dart';
+import 'package:code_fusion/src/home_view/home_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -61,6 +62,12 @@ class App extends StatelessWidget {
             // Override specific properties
             primaryColor: Colors.green,
             scaffoldBackgroundColor: const Color(0xff2b2b2b),
+            extensions: <ThemeExtension<dynamic>>[
+              const CustomColors(
+                leftPanelColor: Color(0xFF2B2B2B),
+                rightPanelColor: Color(0xFF262626),
+              ),
+            ],
             visualDensity: VisualDensity.adaptivePlatformDensity,
             textTheme: const TextTheme(
               bodyLarge: TextStyle(color: Colors.white),
