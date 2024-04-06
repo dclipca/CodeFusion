@@ -2,26 +2,107 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:code_fusion/src/custom_colors.dart';
-import 'package:code_fusion/src/home_view/home_view_utils.dart';
 import 'package:code_fusion/src/settings/settings_controller.dart';
 import 'package:code_fusion/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as path;
 
-class HomeView extends StatefulWidget {
+// Provider for managing the list of directories
+final directoriesProvider = StateProvider<List<String>>((ref) => []);
+
+// Provider for managing the set of selected files
+final selectedFilesProvider = StateProvider<Set<String>>((ref) => {});
+
+// Provider for managing the loading state
+final isLoadingProvider = StateProvider<bool>((ref) => false);
+
+// Provider for managing the metadata of file icons
+final fileSvgIconMetadataProvider =
+    StateProvider<Map<String, dynamic>>((ref) => {});
+
+// Provider for managing the metadata of folder icons
+final folderSvgIconMetadataProvider =
+    StateProvider<Map<String, dynamic>>((ref) => {});
+
+final fileSvgIconMetadataLoaderProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final jsonString =
+      await rootBundle.loadString('assets/icons/files/metadata.json');
+  return json.decode(jsonString) as Map<String, dynamic>;
+});
+
+final folderSvgIconMetadataLoaderProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+  final jsonString =
+      await rootBundle.loadString('assets/icons/folders/metadata.json');
+  return json.decode(jsonString) as Map<String, dynamic>;
+});
+
+String iconNameFromFileName(
+    String fileName, Map<String, dynamic>? svgIconMetadata) {
+  if (svgIconMetadata == null) return 'default_icon_name';
+  String extension = fileName.split('.').last.toLowerCase();
+  String iconName =
+      svgIconMetadata['defaultIcon']?['name'] ?? 'default_icon_name';
+  List<dynamic> icons = svgIconMetadata['icons'] ?? [];
+
+  for (var icon in icons) {
+    List<dynamic> fileExtensions =
+        icon['fileExtensions'] as List<dynamic>? ?? [];
+    List<dynamic> fileNames = icon['fileNames'] as List<dynamic>? ?? [];
+    if (fileExtensions.contains(extension) ||
+        fileNames.contains(fileName.toLowerCase())) {
+      iconName = icon['name'] ?? iconName; // Use existing iconName as fallback
+      break;
+    }
+  }
+  return iconName;
+}
+
+Widget fileIconWidget(String fileName, Map<String, dynamic>? svgIconMetadata) {
+  String iconName = iconNameFromFileName(fileName, svgIconMetadata);
+  String assetPath = 'assets/icons/files/$iconName.svg';
+  return SvgPicture.asset(assetPath, width: 24, height: 24);
+}
+
+String iconNameFromFolderName(
+    Map<String, dynamic>? folderSvgIconMetadata, String folderName) {
+  if (folderSvgIconMetadata == null) return 'default_folder_icon_name';
+  String iconName = folderSvgIconMetadata['defaultIcon']?['name'] ??
+      'default_folder_icon_name';
+  List<dynamic> icons = folderSvgIconMetadata['icons'] ?? [];
+
+  for (var icon in icons) {
+    List<dynamic> folderNames = icon['folderNames'] as List<dynamic>? ?? [];
+    if (folderNames.contains(folderName.toLowerCase())) {
+      iconName = icon['name'] ?? iconName;
+      break;
+    }
+  }
+  return iconName;
+}
+
+Widget folderIconWidget(
+    String folderName, Map<String, dynamic>? folderSvgIconMetadata) {
+  String iconName = iconNameFromFolderName(folderSvgIconMetadata, folderName);
+  String assetPath = 'assets/icons/folders/$iconName.svg';
+  return SvgPicture.asset(assetPath, width: 24, height: 24);
+}
+
+class HomeView extends ConsumerStatefulWidget {
   const HomeView({Key? key, required this.controller}) : super(key: key);
-
   final SettingsController controller;
-
   static const routeName = '/';
 
   @override
   _HomeViewState createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends ConsumerState<HomeView> {
   List<String> _directories = [];
   Set<String> _expandedDirectories = Set<String>();
   Map<String, List<String>> _filesByDirectory = {};
@@ -37,29 +118,15 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _loadFileSvgIconMetadata();
-    _loadFolderSvgIconMetadata();
-  }
-
-  Future<void> _loadFileSvgIconMetadata() async {
-    final jsonString =
-        await rootBundle.loadString('assets/icons/files/metadata.json');
-    setState(() {
-      _fileSvgIconMetadata = json.decode(jsonString);
-    });
-  }
-
-  Future<void> _loadFolderSvgIconMetadata() async {
-    final jsonString =
-        await rootBundle.loadString('assets/icons/folders/metadata.json');
-    setState(() {
-      _folderSvgIconMetadata = json.decode(jsonString);
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final fileMetadata = ref.watch(fileSvgIconMetadataLoaderProvider);
+    final folderMetadata = ref.watch(folderSvgIconMetadataLoaderProvider);
+
     final customColors = Theme.of(context).extension<CustomColors>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Directory'),
@@ -76,13 +143,13 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Expanded(
             child: Row(
-              // Split view for directories and files
               children: [
                 // Directory List
                 Expanded(
                   flex: 1,
                   child: Container(
-                    color: customColors?.leftPanelColor ?? Theme.of(context).scaffoldBackgroundColor,
+                    color: customColors?.leftPanelColor ??
+                        Theme.of(context).scaffoldBackgroundColor,
                     child: _directories.isEmpty
                         ? Center(
                             child: ElevatedButton(
@@ -95,32 +162,34 @@ class _HomeViewState extends State<HomeView> {
                 // File List for the Selected Directory
                 Expanded(
                   flex: 3,
-                  child: _selectedDirectory.isEmpty
-                      ? Center(child: Text('No directory selected'))
-                      : Column(
-                          children: [
-                            Expanded(
-                              child: FileListPanel(
-                                files:
-                                    _filesByDirectory[_selectedDirectory] ?? [],
-                                selectedFiles: _selectedFiles,
-                                fileSvgIconMetadata: _fileSvgIconMetadata,
-                                folderSvgIconMetadata: _folderSvgIconMetadata,
-                                onSelectionChanged: (Set<String> newSelection) {
-                                  setState(() {
-                                    _selectedFiles = newSelection;
-                                    _updateEstimatedTokenCount();
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
+                  child: fileMetadata.when(
+                    data: (fileSvgIconMetadata) => folderMetadata.when(
+                      data: (folderSvgIconMetadata) => FileListPanel(
+                        files: _filesByDirectory[_selectedDirectory] ?? [],
+                        selectedFiles: _selectedFiles,
+                        fileSvgIconMetadata: fileSvgIconMetadata,
+                        folderSvgIconMetadata: folderSvgIconMetadata,
+                        onSelectionChanged: (Set<String> newSelection) {
+                          setState(() {
+                            _selectedFiles = newSelection;
+                            _updateEstimatedTokenCount();
+                          });
+                        },
+                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (error, stack) =>
+                          Center(child: Text('Error loading folder icons')),
+                    ),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, stack) =>
+                        Center(child: Text('Error loading file icons')),
+                  ),
                 ),
               ],
             ),
           ),
-          // "Copy Code" Button in a fixed position
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
@@ -133,16 +202,14 @@ class _HomeViewState extends State<HomeView> {
                       children: [
                         Icon(Icons.check),
                         SizedBox(width: 8),
-                        Text('Copied!'),
+                        Text('Copied!')
                       ],
                     )
                   : _isLoading
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ))
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : Text(
                           'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)'),
             ),
@@ -160,44 +227,45 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildDirectoryList() {
-  return ListView.builder(
-    itemCount: _directories.length,
-    itemBuilder: (context, index) {
-      String directoryPath = _directories[index];
-      bool isExpanded = _expandedDirectories.contains(directoryPath);
+    return ListView.builder(
+      itemCount: _directories.length,
+      itemBuilder: (context, index) {
+        String directoryPath = _directories[index];
+        bool isExpanded = _expandedDirectories.contains(directoryPath);
 
-      return ListTile(
-        title: Text(path.basename(directoryPath)),
-        trailing: IconButton(
-          icon: isExpanded ? Icon(Icons.expand_less) : Icon(Icons.expand_more),
-          onPressed: () {
+        return ListTile(
+          title: Text(path.basename(directoryPath)),
+          trailing: IconButton(
+            icon:
+                isExpanded ? Icon(Icons.expand_less) : Icon(Icons.expand_more),
+            onPressed: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedDirectories.remove(directoryPath);
+                } else {
+                  _expandedDirectories.add(directoryPath);
+                }
+              });
+            },
+          ),
+          selected: directoryPath == _selectedDirectory,
+          onTap: () {
+            if (isExpanded) {
+              // If the directory is expanded, collapse it
+              _expandedDirectories.remove(directoryPath);
+            } else {
+              // Expand the directory and optionally load its contents
+              _expandedDirectories.add(directoryPath);
+              // Optional: Load the directory's contents if not already loaded
+            }
             setState(() {
-              if (isExpanded) {
-                _expandedDirectories.remove(directoryPath);
-              } else {
-                _expandedDirectories.add(directoryPath);
-              }
+              _selectedDirectory = directoryPath;
             });
           },
-        ),
-        selected: directoryPath == _selectedDirectory,
-        onTap: () {
-          if (isExpanded) {
-            // If the directory is expanded, collapse it
-            _expandedDirectories.remove(directoryPath);
-          } else {
-            // Expand the directory and optionally load its contents
-            _expandedDirectories.add(directoryPath);
-            // Optional: Load the directory's contents if not already loaded
-          }
-          setState(() {
-            _selectedDirectory = directoryPath;
-          });
-        },
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Future<void> _handleFolderSelected(String directory) async {
     setState(() {
