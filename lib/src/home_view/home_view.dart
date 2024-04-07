@@ -13,7 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
 class HomeView extends ConsumerStatefulWidget {
-  const HomeView({Key? key, required this.controller}) : super(key: key);
+  const HomeView({super.key, required this.controller});
   final SettingsController controller;
   static const routeName = '/';
 
@@ -23,13 +23,10 @@ class HomeView extends ConsumerStatefulWidget {
 
 class _HomeViewState extends ConsumerState<HomeView> {
   List<String> _directories = [];
-  Set<String> _expandedDirectories = Set<String>();
   Map<String, List<String>> _filesByDirectory = {};
   String _selectedDirectory = '';
 
   Set<String> _selectedFiles = {};
-  Map<String, dynamic> _fileSvgIconMetadata = {};
-  Map<String, dynamic> _folderSvgIconMetadata = {};
   int _estimatedTokenCount = 0;
   bool _isCopied = false;
   bool _isLoading = false;
@@ -46,9 +43,30 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
     final customColors = Theme.of(context).extension<CustomColors>();
 
+    // Check if a directory is selected or if the directory is empty
+    bool shouldShowPickDirectory = _selectedDirectory.isEmpty ||
+        (_filesByDirectory[_selectedDirectory]?.isEmpty ?? true);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Directory'),
+        title: _selectedDirectory.isNotEmpty
+            ? ElevatedButton(
+                onPressed: _addDirectory, // Method for selecting a directory
+                style: ElevatedButton.styleFrom(
+                  textStyle: const TextStyle(fontSize: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  path.basename(
+                      _selectedDirectory), // Display the directory name
+                ),
+              )
+            : const SizedBox
+                .shrink(), // If no directory is selected, show an empty widget
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -61,27 +79,14 @@ class _HomeViewState extends ConsumerState<HomeView> {
       body: Column(
         children: [
           Expanded(
-            child: Row(
-              children: [
-                // Directory List
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    color: customColors?.leftPanelColor ??
-                        Theme.of(context).scaffoldBackgroundColor,
-                    child: _directories.isEmpty
-                        ? Center(
-                            child: ElevatedButton(
-                            onPressed: _addDirectory,
-                            child: const Text("Add Directory"),
-                          ))
-                        : _buildDirectoryList(),
-                  ),
-                ),
-                // File List for the Selected Directory
-                Expanded(
-                  flex: 3,
-                  child: fileMetadata.when(
+            child: shouldShowPickDirectory
+                ? Center(
+                    child: ElevatedButton(
+                      onPressed: _addDirectory,
+                      child: const Text("Pick Directory"),
+                    ),
+                  )
+                : fileMetadata.when(
                     data: (fileSvgIconMetadata) => folderMetadata.when(
                       data: (folderSvgIconMetadata) => FileListPanel(
                         files: _filesByDirectory[_selectedDirectory] ?? [],
@@ -97,93 +102,72 @@ class _HomeViewState extends ConsumerState<HomeView> {
                       ),
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
-                      error: (error, stack) =>
-                          Center(child: Text('Error loading folder icons')),
+                      error: (error, stack) => const Center(
+                          child: Text('Error loading folder icons')),
                     ),
                     loading: () =>
                         const Center(child: CircularProgressIndicator()),
                     error: (error, stack) =>
-                        Center(child: Text('Error loading file icons')),
+                        const Center(child: Text('Error loading file icons')),
+                  ),
+          ),
+          if (_selectedDirectory
+              .isNotEmpty) // Only show the button when a directory is selected
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: _selectedFiles.isNotEmpty
+                    ? _copySelectedFilesToClipboard
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _isCopied
+                        ? const Icon(Icons.check, size: 16.0)
+                        : const Icon(Icons.content_copy, size: 16.0),
+                    const SizedBox(width: 8),
+                    _isCopied
+                        ? const Text('Copied!')
+                        : _isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(
+                                'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)',
+                              ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: _selectedFiles.isNotEmpty
-                  ? _copySelectedFilesToClipboard
-                  : null,
-              child: _isCopied
-                  ? const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check),
-                        SizedBox(width: 8),
-                        Text('Copied!')
-                      ],
-                    )
-                  : _isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(
-                          'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)'),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  void _addDirectory() async {
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    if (selectedDirectory != null) {
-      await _handleFolderSelected(selectedDirectory);
-    }
+  bool _isFolder(String path) {
+    return Directory(path).existsSync();
   }
 
-  Widget _buildDirectoryList() {
-    return ListView.builder(
-      itemCount: _directories.length,
-      itemBuilder: (context, index) {
-        String directoryPath = _directories[index];
-        bool isExpanded = _expandedDirectories.contains(directoryPath);
-
-        return ListTile(
-          title: Text(path.basename(directoryPath)),
-          trailing: IconButton(
-            icon:
-                isExpanded ? Icon(Icons.expand_less) : Icon(Icons.expand_more),
-            onPressed: () {
-              setState(() {
-                if (isExpanded) {
-                  _expandedDirectories.remove(directoryPath);
-                } else {
-                  _expandedDirectories.add(directoryPath);
-                }
-              });
-            },
-          ),
-          selected: directoryPath == _selectedDirectory,
-          onTap: () {
-            if (isExpanded) {
-              // If the directory is expanded, collapse it
-              _expandedDirectories.remove(directoryPath);
-            } else {
-              // Expand the directory and optionally load its contents
-              _expandedDirectories.add(directoryPath);
-              // Optional: Load the directory's contents if not already loaded
-            }
-            setState(() {
-              _selectedDirectory = directoryPath;
-            });
-          },
-        );
-      },
-    );
+  void _addDirectory() async {
+    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+    if (selectedDirectory != null && selectedDirectory != _selectedDirectory) {
+      setState(() {
+        _selectedDirectory = selectedDirectory;
+        // Update any additional state as needed, such as clearing previously selected files or updating the directory listing
+      });
+      _handleFolderSelected(
+          selectedDirectory); // Assuming this method refreshes the content based on the new directory
+    }
   }
 
   Future<void> _handleFolderSelected(String directory) async {
@@ -254,12 +238,17 @@ class _HomeViewState extends ConsumerState<HomeView> {
   void _copySelectedFilesToClipboard() async {
     String combinedContent = '';
     for (var filePath in _selectedFiles) {
+      var fileName = filePath
+          .split(Platform.pathSeparator)
+          .last; // Extract file name from path
       var fileEntity = FileSystemEntity.typeSync(filePath);
       if (fileEntity == FileSystemEntityType.file) {
         try {
           final file = File(filePath);
           String fileContent = await file.readAsString();
-          combinedContent += fileContent + '\n\n';
+          // Wrap each file content with the START and END markers
+          combinedContent +=
+              '### START OF FILE: $fileName ###\n$fileContent\n### END OF FILE: $fileName ###\n\n';
         } catch (e) {
           // Ignoring files that cannot be read as UTF-8
         }
