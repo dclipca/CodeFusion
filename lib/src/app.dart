@@ -54,27 +54,18 @@ class App extends StatelessWidget {
           // darkTheme: ThemeData.dark(),
 
           theme: ThemeData(
-            // This is the theme for the light theme of your application.
             primarySwatch: Colors.blue,
             visualDensity: VisualDensity.adaptivePlatformDensity,
           ),
           darkTheme: ThemeData.dark().copyWith(
-            // Override specific properties
             primaryColor: Colors.green,
-            scaffoldBackgroundColor: const Color(0xff2b2b2b),
-            extensions: <ThemeExtension<dynamic>>[
-              const CustomColors(
-                leftPanelColor: Color(0xFF2B2B2B),
-                rightPanelColor: Color(0xFF262626),
-              ),
-            ],
+            //scaffoldBackgroundColor: const Color(0xff2b2b2b),
             visualDensity: VisualDensity.adaptivePlatformDensity,
             textTheme: const TextTheme(
               bodyLarge: TextStyle(color: Colors.white),
               bodyMedium: TextStyle(color: Colors.white),
               titleMedium: TextStyle(color: Colors.white),
               titleSmall: TextStyle(color: Colors.white),
-              // Add other text styles as needed to ensure they are white
             ),
             iconTheme: const IconThemeData(
               color: Colors.white, // Make icons white

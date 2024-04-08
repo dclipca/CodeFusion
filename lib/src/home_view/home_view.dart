@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:code_fusion/src/custom_colors.dart';
 import 'package:code_fusion/src/home_view/file_list_panel.dart';
 import 'package:code_fusion/src/home_view/state_providers.dart';
+import 'package:code_fusion/src/home_view/utils.dart';
 import 'package:code_fusion/src/settings/settings_controller.dart';
 import 'package:code_fusion/src/settings/settings_view.dart';
 import 'package:flutter/material.dart';
@@ -50,20 +51,29 @@ class _HomeViewState extends ConsumerState<HomeView> {
     return Scaffold(
       appBar: AppBar(
         title: _selectedDirectory.isNotEmpty
-            ? ElevatedButton(
-                onPressed: _addDirectory, // Method for selecting a directory
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 16),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                child: Text(
-                  path.basename(
-                      _selectedDirectory), // Display the directory name
-                ),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Consumer(builder: (context, ref, _) {
+                    final folderMetadataAsyncValue =
+                        ref.watch(folderSvgIconMetadataLoaderProvider);
+                    return folderMetadataAsyncValue.when(
+                      data: (folderSvgIconMetadata) => ElevatedButton(
+                        onPressed: _addDirectory,
+                        child: Row(
+                          children: [
+                            folderIconWidget(path.basename(_selectedDirectory),
+                                folderSvgIconMetadata),
+                            const SizedBox(width: 8),
+                            Text(path.basename(_selectedDirectory)),
+                          ],
+                        ),
+                      ),
+                      loading: () => const CircularProgressIndicator(),
+                      error: (error, stack) => const Icon(Icons.error),
+                    );
+                  }),
+                ],
               )
             : const SizedBox
                 .shrink(), // If no directory is selected, show an empty widget
@@ -129,6 +139,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Conditional icon based on the _isCopied state
                     _isCopied
                         ? const Icon(Icons.check, size: 16.0)
                         : const Icon(Icons.content_copy, size: 16.0),
