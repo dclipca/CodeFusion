@@ -50,3 +50,6 @@ final folderContentsProvider =
   final contents = await directory.list().map((entity) => entity.path).toList();
   return contents;
 });
+final estimatedTokenCountProvider = StateProvider<int>((ref) {
+  return 0; // Initial token count is set to 0
+});

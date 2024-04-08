@@ -28,7 +28,6 @@ class HomeViewState extends ConsumerState<HomeView> {
   String _selectedDirectory = '';
 
   Set<String> _selectedFiles = {};
-  int _estimatedTokenCount = 0;
   bool _isCopied = false;
   bool _isLoading = false;
 
@@ -47,8 +46,7 @@ class HomeViewState extends ConsumerState<HomeView> {
   Widget build(BuildContext context) {
     final fileMetadata = ref.watch(fileSvgIconMetadataLoaderProvider);
     final folderMetadata = ref.watch(folderSvgIconMetadataLoaderProvider);
-
-    final customColors = Theme.of(context).extension<CustomColors>();
+    final estimatedTokenCount = ref.watch(estimatedTokenCountProvider);
 
     // Check if a directory is selected or if the directory is empty
     bool shouldShowPickDirectory = _selectedDirectory.isEmpty ||
@@ -111,7 +109,6 @@ class HomeViewState extends ConsumerState<HomeView> {
                         onSelectionChanged: (Set<String> newSelection) {
                           setState(() {
                             _selectedFiles = newSelection;
-                            _updateEstimatedTokenCount();
                           });
                         },
                       ),
@@ -159,7 +156,7 @@ class HomeViewState extends ConsumerState<HomeView> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : Text(
-                                'Copy code (~${_formatTokens(_estimatedTokenCount)} tokens)',
+                                'Copy code (~${_formatTokens(estimatedTokenCount)} tokens)',
                               ),
                   ],
                 ),
@@ -195,41 +192,6 @@ class HomeViewState extends ConsumerState<HomeView> {
     }
   }
 
-  Future<bool> isUtf8Encoded(String filePath) async {
-    File file = File(filePath);
-    try {
-      await file.openRead(0, 1024).transform(utf8.decoder).first;
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  void _updateEstimatedTokenCount() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    int tokenCount = 0;
-    for (var filePath in _selectedFiles) {
-      final fileSystemEntity = FileSystemEntity.typeSync(filePath);
-      if (fileSystemEntity == FileSystemEntityType.file) {
-        try {
-          final file = File(filePath);
-          String fileContent = await file.readAsString();
-          tokenCount += estimateTokenCount(fileContent);
-        } catch (e) {
-          // Ignoring files that cannot be read as UTF-8
-        }
-      }
-    }
-
-    setState(() {
-      _estimatedTokenCount = tokenCount;
-      _isLoading = false;
-    });
-  }
-
   void _copySelectedFilesToClipboard() async {
     String combinedContent = '';
     for (var filePath in _selectedFiles) {
@@ -260,16 +222,6 @@ class HomeViewState extends ConsumerState<HomeView> {
         });
       });
     }
-  }
-
-  static int estimateTokenCount(String prompt) {
-    int baseWordCount = prompt.length ~/ 5;
-    var punctuationRegex = RegExp(r'[,.!?;:]');
-    int punctuationCount = punctuationRegex.allMatches(prompt).length;
-    double subwordAdjustmentFactor = 1.1;
-    int estimatedTokens =
-        ((baseWordCount + punctuationCount) * subwordAdjustmentFactor).round();
-    return estimatedTokens;
   }
 
   String _formatTokens(int tokens) {

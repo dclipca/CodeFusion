@@ -12,12 +12,12 @@ class FileListPanel extends ConsumerWidget {
   final Function(Set<String>) onSelectionChanged;
 
   const FileListPanel({
-    Key? key,
+    super.key,
     required this.files,
     required this.fileSvgIconMetadata,
     required this.folderSvgIconMetadata,
     required this.onSelectionChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -98,16 +98,43 @@ class FileListPanel extends ConsumerWidget {
     final isDirectory = FileSystemEntity.isDirectorySync(filePath);
 
     if (currentSelectedFiles.contains(filePath)) {
-      // If the item is already selected, remove it and its children if it's a directory
       _recursiveDeselection(ref, filePath, currentSelectedFiles);
     } else {
-      // If the item is not selected, add it and its children if it's a directory
       _recursiveSelection(ref, filePath, currentSelectedFiles);
     }
 
     // Update the state with the new selection set
     ref.read(selectedFilesProvider.notifier).state = currentSelectedFiles;
     onSelectionChanged(currentSelectedFiles);
+
+    _updateEstimatedTokenCount(ref);
+  }
+
+  Future<void> _updateEstimatedTokenCount(WidgetRef ref) async {
+    final currentSelectedFiles = ref.read(selectedFilesProvider.state).state;
+    int tokenCount = 0;
+
+    // Use a list of futures to track completion of all asynchronous operations
+    var futures = <Future>[];
+
+    for (var filePath in currentSelectedFiles) {
+      futures.add(Future(() async {
+        if (await isUtf8Encoded(filePath)) {
+          final file = File(filePath);
+          final fileContent = await file.readAsString();
+          tokenCount += estimateTokenCount(fileContent);
+        }
+      }));
+    }
+
+    // Wait for all file processing operations to complete
+    await Future.wait(futures);
+
+    // Optionally add a delay to ensure the state update is the last operation
+    Future.delayed(Duration.zero, () {
+      // Update the estimated token count provider with the new count
+      ref.read(estimatedTokenCountProvider.state).state = tokenCount;
+    });
   }
 
   void _recursiveSelection(

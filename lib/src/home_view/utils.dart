@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -66,4 +67,24 @@ Future<List<String>> loadDirectoryContents(String directoryPath) async {
 String normalizePath(String path) {
   // Normalize path to avoid issues with trailing slashes and case sensitivity.
   return path.replaceAll('\\', '/').toLowerCase().trim();
+}
+
+Future<bool> isUtf8Encoded(String filePath) async {
+  File file = File(filePath);
+  try {
+    await file.openRead(0, 1024).transform(utf8.decoder).first;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+int estimateTokenCount(String prompt) {
+  int baseWordCount = prompt.length ~/ 5;
+  var punctuationRegex = RegExp(r'[,.!?;:]');
+  int punctuationCount = punctuationRegex.allMatches(prompt).length;
+  double subwordAdjustmentFactor = 1.1;
+  int estimatedTokens =
+      ((baseWordCount + punctuationCount) * subwordAdjustmentFactor).round();
+  return estimatedTokens;
 }
