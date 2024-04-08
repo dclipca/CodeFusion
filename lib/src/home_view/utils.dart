@@ -1,8 +1,6 @@
 import 'dart:io';
 
-import 'package:code_fusion/src/home_view/state_providers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 String iconNameFromFileName(

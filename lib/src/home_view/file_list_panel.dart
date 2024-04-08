@@ -48,7 +48,7 @@ class FileListPanel extends ConsumerWidget {
                       : Icons.expand_more),
                   onPressed: () => toggleFolderExpansion(ref, filePath),
                   padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
+                  constraints: const BoxConstraints(),
                 ),
               Padding(
                 // Adjusted padding logic here

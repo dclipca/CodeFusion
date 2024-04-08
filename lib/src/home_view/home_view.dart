@@ -170,10 +170,6 @@ class HomeViewState extends ConsumerState<HomeView> {
     );
   }
 
-  bool _isFolder(String path) {
-    return Directory(path).existsSync();
-  }
-
   void _addDirectory() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
     if (selectedDirectory != null) {
@@ -197,36 +193,6 @@ class HomeViewState extends ConsumerState<HomeView> {
         });
       }
     }
-  }
-
-  Future<void> _handleFolderSelected(String directory) async {
-    setState(() {
-      _isLoading = true;
-      if (!_directories.contains(directory)) {
-        _directories.add(directory); // Add the new directory to the list
-      }
-      // Now handle files for the selected directory
-      _selectedDirectory = directory; // Set the selected directory
-    });
-
-    // Load files for the newly added directory
-    Directory dir = Directory(directory);
-    List<String> folders = [];
-    List<String> files = [];
-
-    await for (var entity in dir.list(recursive: false)) {
-      if (entity is Directory) {
-        folders.add(entity.path);
-      } else if (entity is File && await isUtf8Encoded(entity.path)) {
-        files.add(entity.path);
-      }
-    }
-
-    setState(() {
-      _filesByDirectory[directory] = folders
-        ..addAll(files); // Associate files with their directory
-      _isLoading = false;
-    });
   }
 
   Future<bool> isUtf8Encoded(String filePath) async {
