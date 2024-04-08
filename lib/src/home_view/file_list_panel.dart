@@ -34,34 +34,43 @@ class FileListPanel extends ConsumerWidget {
         final fileName = path.basename(filePath);
         final isSelected = ref.watch(selectedFilesProvider).contains(filePath);
 
-        return ListTile(
-          dense: true,
-          key: ValueKey(filePath),
-          title: Text(fileName),
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isDirectory)
-                IconButton(
-                  icon: Icon(isExpanded(ref, filePath)
-                      ? Icons.expand_less
-                      : Icons.expand_more),
-                  onPressed: () => toggleFolderExpansion(ref, filePath),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+        return Container(
+          padding: const EdgeInsets.symmetric(
+              vertical: 0), // Reduce vertical padding
+          child: ListTile(
+            dense: true,
+            key: ValueKey(filePath),
+            title: Text(fileName),
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isDirectory) ...[
+                  IconButton(
+                    icon: Icon(isExpanded(ref, filePath)
+                        ? Icons.expand_more
+                        : Icons.chevron_right),
+                    onPressed: () => toggleFolderExpansion(ref, filePath),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(), // Adjust based on the actual size of your chevron
+                  ),
+                ] else ...[
+                  // Placeholder for files to align with the chevron of folders
+                  const SizedBox(
+                      width: 24,
+                      height: 24), // Ensure this matches the chevron size
+                ],
+                Padding(
+                  padding: EdgeInsets.only(left: 30.0 * depth),
+                  child: isDirectory
+                      ? folderIconWidget(fileName, folderSvgIconMetadata)
+                      : fileIconWidget(fileName, fileSvgIconMetadata),
                 ),
-              Padding(
-                // Adjusted padding logic here
-                padding: EdgeInsets.only(
-                    left: 20.0 * depth + (isDirectory ? 0 : 20.0)),
-                child: isDirectory
-                    ? folderIconWidget(fileName, folderSvgIconMetadata)
-                    : fileIconWidget(fileName, fileSvgIconMetadata),
-              ),
-            ],
+              ],
+            ),
+            tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
+            onTap: () => handleFileSelection(ref, filePath),
           ),
-          tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
-          onTap: () => handleFileSelection(ref, filePath),
         );
       },
     );
@@ -134,13 +143,14 @@ class FileListPanel extends ConsumerWidget {
     List<Map<String, dynamic>> combinedList = [];
     for (final filePath in files) {
       final isDirectory = FileSystemEntity.isDirectorySync(filePath);
-      final isExpanded = ref.watch(expandedFoldersProvider).contains(filePath);
+      // Add the file or directory with its current depth
       combinedList
           .add({'path': filePath, 'depth': depth, 'isDirectory': isDirectory});
 
-      if (isDirectory && isExpanded) {
+      // If it's a directory and expanded, recursively add its contents with incremented depth
+      if (isDirectory && isExpanded(ref, filePath)) {
         final folderContents =
-            ref.watch(folderContentsProvider(filePath)).asData?.value ?? [];
+            ref.read(folderContentsProvider(filePath)).asData?.value ?? [];
         combinedList
             .addAll(_generateCombinedFilesList(ref, folderContents, depth + 1));
       }
