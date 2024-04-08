@@ -106,7 +106,6 @@ class HomeViewState extends ConsumerState<HomeView> {
                     data: (fileSvgIconMetadata) => folderMetadata.when(
                       data: (folderSvgIconMetadata) => FileListPanel(
                         files: _filesByDirectory[_selectedDirectory] ?? [],
-                        selectedFiles: _selectedFiles,
                         fileSvgIconMetadata: fileSvgIconMetadata,
                         folderSvgIconMetadata: folderSvgIconMetadata,
                         onSelectionChanged: (Set<String> newSelection) {

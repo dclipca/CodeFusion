@@ -1,160 +1,150 @@
 import 'dart:io';
-
+import 'package:code_fusion/src/home_view/state_providers.dart';
 import 'package:code_fusion/src/home_view/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 
-class FileListPanel extends StatefulWidget {
+class FileListPanel extends ConsumerWidget {
   final List<String> files;
-  final Set<String> selectedFiles;
   final Map<String, dynamic> fileSvgIconMetadata;
   final Map<String, dynamic> folderSvgIconMetadata;
   final Function(Set<String>) onSelectionChanged;
 
   const FileListPanel({
-    super.key,
+    Key? key,
     required this.files,
-    required this.selectedFiles,
     required this.fileSvgIconMetadata,
     required this.folderSvgIconMetadata,
     required this.onSelectionChanged,
-  });
+  }) : super(key: key);
 
   @override
-  _FileListPanelState createState() => _FileListPanelState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Assuming 'files' is already available and contains the root level files/folders
+    final combinedFiles = _generateCombinedFilesList(ref, files, 0);
 
-class _FileListPanelState extends State<FileListPanel> {
-  Map<String, bool> _expandedFolders = {};
-  Map<String, List<String>> _filesByDirectory = {};
-
-  @override
-  Widget build(BuildContext context) {
     return ListView.builder(
-      itemCount: widget.files.length,
+      itemCount: combinedFiles.length,
       itemBuilder: (context, index) {
-        String filePath = widget.files[index];
-        String fileName = path.basename(filePath);
-        bool isDirectory = Directory(filePath).existsSync() &&
-            Directory(filePath).statSync().type ==
-                FileSystemEntityType.directory;
+        final item = combinedFiles[index];
+        final filePath = item['path'];
+        final depth = item['depth'];
+        final isDirectory = item['isDirectory'];
+        final fileName = path.basename(filePath);
+        final isSelected = ref.watch(selectedFilesProvider).contains(filePath);
 
-        Widget iconWidget = isDirectory
-            ? folderIconWidget(fileName, widget.folderSvgIconMetadata)
-            : fileIconWidget(fileName, widget.fileSvgIconMetadata);
-
-        bool isExpanded = _expandedFolders[filePath] ?? false;
-
-        Widget trailingIcon = isDirectory
-            ? GestureDetector(
-                onTap: () => _handleChevronTap(filePath),
-                child: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
-              )
-            : SizedBox.shrink();
-
-        double leftPadding = _shouldBeIndented(filePath) ? 20.0 : 0.0;
-        bool isSelected = widget.selectedFiles.contains(filePath) ||
-            (isDirectory && _checkIfFolderSelected(filePath));
-
-        return Padding(
-          padding: EdgeInsets.only(left: leftPadding),
-          child: ListTile(
-            dense: true,
-            leading: iconWidget,
-            title: Text(fileName),
-            trailing: trailingIcon,
-            tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
-            onTap: () {
-              if (!isDirectory) {
-                _toggleFileSelection(filePath);
-              } else {
-                _toggleFolderSelection(filePath);
-              }
-            },
+        return ListTile(
+          dense: true,
+          key: ValueKey(filePath),
+          title: Text(fileName),
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isDirectory)
+                IconButton(
+                  icon: Icon(isExpanded(ref, filePath)
+                      ? Icons.expand_less
+                      : Icons.expand_more),
+                  onPressed: () => toggleFolderExpansion(ref, filePath),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                ),
+              Padding(
+                // Adjusted padding logic here
+                padding: EdgeInsets.only(
+                    left: 20.0 * depth + (isDirectory ? 0 : 20.0)),
+                child: isDirectory
+                    ? folderIconWidget(fileName, folderSvgIconMetadata)
+                    : fileIconWidget(fileName, fileSvgIconMetadata),
+              ),
+            ],
           ),
+          tileColor: isSelected ? Colors.green.withOpacity(0.3) : null,
+          onTap: () => handleFileSelection(ref, filePath),
         );
       },
     );
   }
 
-  bool _shouldBeIndented(String filePath) {
-    var parentDir = path.dirname(filePath);
-    return _expandedFolders.containsKey(parentDir) &&
-        _expandedFolders[parentDir]!;
+  bool isExpanded(WidgetRef ref, String filePath) {
+    return ref.watch(expandedFoldersProvider).contains(filePath);
   }
 
-  void _handleChevronTap(String folderPath) {
-    final isExpanded = _expandedFolders[folderPath] ?? false;
-    setState(() {
-      _expandedFolders[folderPath] = !isExpanded;
-    });
-
-    if (!isExpanded) {
-      // Simulate loading folder contents
-      _loadFolderContents(folderPath);
-    }
-  }
-
-  void _loadFolderContents(String folderPath) async {
-    if (_expandedFolders[folderPath] ?? false) {
-      // If the folder is already expanded, no need to reload its contents
-      return;
-    }
-
-    Directory dir = Directory(folderPath);
-    List<String> contents = [];
-
-    await for (var entity in dir.list(recursive: false)) {
-      // Here you might want to filter out certain files or directories
-      contents.add(entity.path);
-    }
-
-    setState(() {
-      // Update the map of directory contents
-      _filesByDirectory[folderPath] = contents;
-      // Ensure the folder is marked as expanded
-      _expandedFolders[folderPath] = true;
-    });
-  }
-
-  void _toggleFileSelection(String filePath) {
-    Set<String> newSelection = Set.from(widget.selectedFiles);
-    if (newSelection.contains(filePath)) {
-      newSelection.remove(filePath);
+  void toggleFolderExpansion(WidgetRef ref, String filePath) {
+    final currentSet = ref.read(expandedFoldersProvider.notifier).state;
+    if (currentSet.contains(filePath)) {
+      currentSet.remove(filePath);
     } else {
-      newSelection.add(filePath);
+      currentSet.add(filePath);
+      // Triggering a refresh on the folderContentsProvider if you need to fetch new data
+      ref.refresh(folderContentsProvider(filePath));
     }
-    widget.onSelectionChanged(newSelection);
+    // Explicitly setting the state to a new instance of the set to ensure notification
+    ref.read(expandedFoldersProvider.notifier).state = {...currentSet};
   }
 
-  void _toggleFolderSelection(String folderPath) {
-    bool isSelected = _checkIfFolderSelected(folderPath);
-    Set<String> newSelection = Set.from(widget.selectedFiles);
+  void handleFileSelection(WidgetRef ref, String filePath) {
+    final currentSelectedFiles = ref.read(selectedFilesProvider.notifier).state;
+    final isDirectory = FileSystemEntity.isDirectorySync(filePath);
 
-    // Assuming widget.files contains all files and subfolders within the current folder
-    for (var filePath in widget.files) {
-      if (path.dirname(filePath) == folderPath || filePath == folderPath) {
-        if (isSelected) {
-          newSelection.remove(filePath);
-        } else {
-          newSelection.add(filePath);
-        }
+    if (currentSelectedFiles.contains(filePath)) {
+      // If the item is already selected, remove it and its children if it's a directory
+      _recursiveDeselection(ref, filePath, currentSelectedFiles);
+    } else {
+      // If the item is not selected, add it and its children if it's a directory
+      _recursiveSelection(ref, filePath, currentSelectedFiles);
+    }
+
+    // Update the state with the new selection set
+    ref.read(selectedFilesProvider.notifier).state = currentSelectedFiles;
+    onSelectionChanged(currentSelectedFiles);
+  }
+
+  void _recursiveSelection(
+      WidgetRef ref, String filePath, Set<String> selectionSet) {
+    final isDirectory = FileSystemEntity.isDirectorySync(filePath);
+    selectionSet.add(filePath);
+
+    if (isDirectory) {
+      final folderContents =
+          ref.read(folderContentsProvider(filePath)).asData?.value ?? [];
+      for (final childPath in folderContents) {
+        _recursiveSelection(ref, childPath, selectionSet);
       }
     }
-
-    widget.onSelectionChanged(newSelection);
   }
 
-  bool _checkIfFolderSelected(String folderPath) {
-    // This method assumes all files directly under the folderPath should be checked
-    for (var filePath in widget.files) {
-      if (path.dirname(filePath) == folderPath &&
-          !widget.selectedFiles.contains(filePath)) {
-        return false;
+  void _recursiveDeselection(
+      WidgetRef ref, String filePath, Set<String> selectionSet) {
+    final isDirectory = FileSystemEntity.isDirectorySync(filePath);
+    selectionSet.remove(filePath);
+
+    if (isDirectory) {
+      final folderContents =
+          ref.read(folderContentsProvider(filePath)).asData?.value ?? [];
+      for (final childPath in folderContents) {
+        _recursiveDeselection(ref, childPath, selectionSet);
       }
     }
-    return true;
   }
 
-  // Add any additional methods or logic required for folder expansion and content selection
+  List<Map<String, dynamic>> _generateCombinedFilesList(
+      WidgetRef ref, List<String> files, int depth) {
+    List<Map<String, dynamic>> combinedList = [];
+    for (final filePath in files) {
+      final isDirectory = FileSystemEntity.isDirectorySync(filePath);
+      final isExpanded = ref.watch(expandedFoldersProvider).contains(filePath);
+      combinedList
+          .add({'path': filePath, 'depth': depth, 'isDirectory': isDirectory});
+
+      if (isDirectory && isExpanded) {
+        final folderContents =
+            ref.watch(folderContentsProvider(filePath)).asData?.value ?? [];
+        combinedList
+            .addAll(_generateCombinedFilesList(ref, folderContents, depth + 1));
+      }
+    }
+    return combinedList;
+  }
 }

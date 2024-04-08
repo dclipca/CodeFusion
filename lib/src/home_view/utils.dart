@@ -64,3 +64,8 @@ Future<List<String>> loadDirectoryContents(String directoryPath) async {
   }
   return contents;
 }
+
+String normalizePath(String path) {
+  // Normalize path to avoid issues with trailing slashes and case sensitivity.
+  return path.replaceAll('\\', '/').toLowerCase().trim();
+}

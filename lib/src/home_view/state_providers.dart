@@ -24,10 +24,29 @@ final folderSvgIconMetadataLoaderProvider =
 });
 final directoriesProvider = StateProvider<List<String>>((ref) => []);
 final selectedDirectoryProvider = StateProvider<String?>((ref) => null);
-final directoryContentsProvider = StateProvider<List<String>>((ref) => []);
 final selectedFilesProvider = StateProvider<Set<String>>((ref) => {});
 final directoryContentsLoaderProvider =
     FutureProvider.family<List<String>, String>((ref, directoryPath) async {
+  // Pass 'ref' along with 'directoryPath' to 'loadDirectoryContents'
   List<String> contents = await loadDirectoryContents(directoryPath);
+  return contents;
+});
+// Provider to fetch and cache directory contents
+final directoryContentsProvider =
+    FutureProvider.family<List<String>, String>((ref, directoryPath) async {
+  final dir = Directory(directoryPath);
+  final List<String> contents = [];
+  await for (final entity in dir.list()) {
+    contents.add(entity.path);
+  }
+  return contents;
+});
+final expandedFoldersProvider = StateProvider<Set<String>>((ref) {
+  return {}; // Default to no expanded folders
+});
+final folderContentsProvider =
+    FutureProvider.family<List<String>, String>((ref, folderPath) async {
+  final directory = Directory(folderPath);
+  final contents = await directory.list().map((entity) => entity.path).toList();
   return contents;
 });

@@ -54,8 +54,35 @@ class App extends StatelessWidget {
           // darkTheme: ThemeData.dark(),
 
           theme: ThemeData(
-            primarySwatch: Colors.blue,
+            primarySwatch: Colors.blueGrey,
             visualDensity: VisualDensity.adaptivePlatformDensity,
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Colors.black),
+              bodyMedium: TextStyle(color: Colors.black),
+              titleMedium: TextStyle(color: Colors.black),
+              titleSmall: TextStyle(color: Colors.black),
+            ),
+            iconTheme: const IconThemeData(
+              color: Colors.black, // Make icons white
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.black), // Text color for ElevatedButton
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.black), // Text color for TextButton
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(
+                    Colors.black), // Text color for OutlinedButton
+              ),
+            ),
           ),
           darkTheme: ThemeData.dark().copyWith(
             primaryColor: Colors.green,
