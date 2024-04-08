@@ -19,10 +19,10 @@ class HomeView extends ConsumerStatefulWidget {
   static const routeName = '/';
 
   @override
-  _HomeViewState createState() => _HomeViewState();
+  HomeViewState createState() => HomeViewState();
 }
 
-class _HomeViewState extends ConsumerState<HomeView> {
+class HomeViewState extends ConsumerState<HomeView> {
   List<String> _directories = [];
   Map<String, List<String>> _filesByDirectory = {};
   String _selectedDirectory = '';
@@ -35,6 +35,12 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   void initState() {
     super.initState();
+  }
+
+  void selectDirectory(WidgetRef ref, String directoryPath) {
+    ref.read(selectedDirectoryProvider.state).state = directoryPath;
+    // Trigger loading of directory contents
+    ref.refresh(directoryContentsLoaderProvider(directoryPath));
   }
 
   @override
@@ -171,13 +177,26 @@ class _HomeViewState extends ConsumerState<HomeView> {
 
   void _addDirectory() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    if (selectedDirectory != null && selectedDirectory != _selectedDirectory) {
+    if (selectedDirectory != null) {
+      // Directly set the UI state for selected directory to refresh the UI
       setState(() {
         _selectedDirectory = selectedDirectory;
-        // Update any additional state as needed, such as clearing previously selected files or updating the directory listing
+        _isLoading = true; // Indicate loading UI
       });
-      _handleFolderSelected(
-          selectedDirectory); // Assuming this method refreshes the content based on the new directory
+
+      // Load directory contents here and update UI state accordingly
+      try {
+        final contents = await loadDirectoryContents(selectedDirectory);
+        setState(() {
+          _filesByDirectory[selectedDirectory] = contents;
+        });
+      } catch (error) {
+        // Handle error (e.g., show a toast or log the error)
+      } finally {
+        setState(() {
+          _isLoading = false; // Reset loading UI
+        });
+      }
     }
   }
 

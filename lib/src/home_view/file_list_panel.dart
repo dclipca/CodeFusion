@@ -26,6 +26,7 @@ class FileListPanel extends StatefulWidget {
 
 class _FileListPanelState extends State<FileListPanel> {
   Map<String, bool> _expandedFolders = {};
+  Map<String, List<String>> _filesByDirectory = {};
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +36,8 @@ class _FileListPanelState extends State<FileListPanel> {
         String filePath = widget.files[index];
         String fileName = path.basename(filePath);
         bool isDirectory = Directory(filePath).existsSync() &&
-            Directory(filePath).statSync().type == FileSystemEntityType.directory;
+            Directory(filePath).statSync().type ==
+                FileSystemEntityType.directory;
 
         Widget iconWidget = isDirectory
             ? folderIconWidget(fileName, widget.folderSvgIconMetadata)
@@ -77,14 +79,41 @@ class _FileListPanelState extends State<FileListPanel> {
 
   bool _shouldBeIndented(String filePath) {
     var parentDir = path.dirname(filePath);
-    return _expandedFolders.containsKey(parentDir) && _expandedFolders[parentDir]!;
+    return _expandedFolders.containsKey(parentDir) &&
+        _expandedFolders[parentDir]!;
   }
 
   void _handleChevronTap(String folderPath) {
     final isExpanded = _expandedFolders[folderPath] ?? false;
     setState(() {
       _expandedFolders[folderPath] = !isExpanded;
-      // Optionally implement logic here to dynamically load or unload folder contents
+    });
+
+    if (!isExpanded) {
+      // Simulate loading folder contents
+      _loadFolderContents(folderPath);
+    }
+  }
+
+  void _loadFolderContents(String folderPath) async {
+    if (_expandedFolders[folderPath] ?? false) {
+      // If the folder is already expanded, no need to reload its contents
+      return;
+    }
+
+    Directory dir = Directory(folderPath);
+    List<String> contents = [];
+
+    await for (var entity in dir.list(recursive: false)) {
+      // Here you might want to filter out certain files or directories
+      contents.add(entity.path);
+    }
+
+    setState(() {
+      // Update the map of directory contents
+      _filesByDirectory[folderPath] = contents;
+      // Ensure the folder is marked as expanded
+      _expandedFolders[folderPath] = true;
     });
   }
 
@@ -99,14 +128,32 @@ class _FileListPanelState extends State<FileListPanel> {
   }
 
   void _toggleFolderSelection(String folderPath) {
-    // Implement your logic here for recursive folder selection
-    // This should iterate through the folder's contents, selecting or deselecting them as appropriate
+    bool isSelected = _checkIfFolderSelected(folderPath);
+    Set<String> newSelection = Set.from(widget.selectedFiles);
+
+    // Assuming widget.files contains all files and subfolders within the current folder
+    for (var filePath in widget.files) {
+      if (path.dirname(filePath) == folderPath || filePath == folderPath) {
+        if (isSelected) {
+          newSelection.remove(filePath);
+        } else {
+          newSelection.add(filePath);
+        }
+      }
+    }
+
+    widget.onSelectionChanged(newSelection);
   }
 
   bool _checkIfFolderSelected(String folderPath) {
-    // Implement your logic here to check if a folder is selected
-    // This likely involves checking if all files within the folder are currently selected
-    return false; // Placeholder return
+    // This method assumes all files directly under the folderPath should be checked
+    for (var filePath in widget.files) {
+      if (path.dirname(filePath) == folderPath &&
+          !widget.selectedFiles.contains(filePath)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   // Add any additional methods or logic required for folder expansion and content selection

@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:code_fusion/src/home_view/state_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 String iconNameFromFileName(
@@ -50,4 +54,13 @@ Widget folderIconWidget(
   String iconName = iconNameFromFolderName(folderSvgIconMetadata, folderName);
   String assetPath = 'assets/icons/folders/$iconName.svg';
   return SvgPicture.asset(assetPath, width: 24, height: 24);
+}
+
+Future<List<String>> loadDirectoryContents(String directoryPath) async {
+  Directory directory = Directory(directoryPath);
+  List<String> contents = [];
+  await for (var entity in directory.list()) {
+    contents.add(entity.path);
+  }
+  return contents;
 }
