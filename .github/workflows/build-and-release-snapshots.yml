@@ -23,22 +23,21 @@ jobs:
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
 
-      - name: Set up Flutter (Linux and Windows)
-        if: matrix.os != 'macos-latest'
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Manually Install Flutter (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Verify CMake and Ninja Installation (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-          export PATH="$HOME/flutter/bin:$PATH"
-          flutter doctor
+          cmake --version
+          ninja --version
 
       - name: Build
         run: ${{ matrix.build-command }}
