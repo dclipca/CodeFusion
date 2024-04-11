@@ -15,7 +15,7 @@ jobs:
           - os: ubuntu-latest
             artifact-name: "Linux-Snapshot.zip"
             build-command: "flutter build linux"
-            output-path: "./build/linux/release/bundle" # Adjust this path
+            output-path: "./build/linux/release/bundle" # Confirm and adjust this path
           - os: macos-latest
             artifact-name: "macOS-Snapshot.zip"
             build-command: "flutter build macos"
@@ -37,10 +37,21 @@ jobs:
       - name: Build
         run: ${{ matrix.build-command }}
 
+      - name: Debugging - List Build Directory Contents (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Listing contents of the expected output directory..."
+          ls -alh ${{ matrix.output-path }} || true
+
       - name: Zip artifacts
         run: |
-          zip -r ${{ matrix.artifact-name }} ${{ matrix.output-path }}
-          
+          if [ -d "${{ matrix.output-path }}" ]; then
+            zip -r ${{ matrix.artifact-name }} ${{ matrix.output-path }}
+          else
+            echo "Specified output path does not exist, skipping zip step."
+            exit 1
+          fi
+
       - name: Upload Artifact to Release
         if: success()
         uses: actions/upload-artifact@v2
