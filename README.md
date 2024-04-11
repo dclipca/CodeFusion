@@ -19,10 +19,3 @@ Manually copying and pasting code snippets is tedious. CodeFusion allows you to 
 * **Optimized for Token Limits:**  Focus on the code that's relevant to your ChatGPT query, ensuring it fits within the allowable token context.
 * **Error Reduction:**  Minimize the potential for mistakes introduced during manual copy-pasting.
 * **Efficient Workflow:**  Maintain a smooth workflow by seamlessly preparing code for ChatGPT.
-
-**How to Get Started**
-
-1. **Download:** Get CodeFusion from [Releases](https://github.com/dclipca/CodeFusion/releases/) (only Windows for now).
-2. **Select Your Code:** Choose the necessary code files from your project.
-3. **Merge:**  Use CodeFusion to merge the selected code into a single prompt block.
-4. **ChatGPT Integration:**  Use the merged code in ChatGPT.
