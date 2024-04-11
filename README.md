@@ -7,7 +7,7 @@
   <br>
 </p>
 
-## CodeFusion: Streamline code merging for ChatGPT (with token context in mind)
+# CodeFusion
 
 **Working with large codebases in ChatGPT?** Manually copying and pasting code snippets can be tedious and risks exceeding the token context limits. CodeFusion simplifies this process for you.
 
