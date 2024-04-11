@@ -9,23 +9,24 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact-name: "Windows-Snapshot"
+            artifact-name: "Windows-Snapshot.zip"
             build-command: "flutter build windows"
+            output-path: "./build/windows/runner/Release" # Adjust this path
           - os: ubuntu-latest
-            artifact-name: "Linux-Snapshot"
+            artifact-name: "Linux-Snapshot.zip"
             build-command: "flutter build linux"
+            output-path: "./build/linux/release/bundle" # Adjust this path
           - os: macos-latest
-            artifact-name: "macOS-Snapshot"
+            artifact-name: "macOS-Snapshot.zip"
             build-command: "flutter build macos"
+            output-path: "./build/macos/Build/Products/Release" # Adjust this path
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build libgtk-3-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libgtk-3-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -33,20 +34,24 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify CMake, Ninja, and GTK+ 3 Installation (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cmake --version
-          ninja --version
-          pkg-config --modversion gtk+-3.0
-
       - name: Build
         run: ${{ matrix.build-command }}
 
       - name: Zip artifacts
         run: |
-          zip -r ${{ matrix.artifact-name }}.zip ./path/to/build/output
+          zip -r ${{ matrix.artifact-name }} ${{ matrix.output-path }}
+          
+      - name: Upload Artifact to Release
+        if: success()
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}
 
+  release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -58,12 +63,15 @@ jobs:
           draft: false
           prerelease: true
 
-      - name: Upload Artifact to Release
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Upload Artifacts to Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ matrix.artifact-name }}.zip
-          asset_name: ${{ matrix.artifact-name }}.zip
+          asset_path: ./${{ matrix.artifact-name }}
+          asset_name: ${{ matrix.artifact-name }}
           asset_content_type: application/zip
