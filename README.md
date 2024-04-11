@@ -7,13 +7,9 @@
   <br>
 </p>
 
-## CodeFusion: Streamline Code Merging for ChatGPT (with Token Context in Mind)
+# CodeFusion
 
-**Working with large codebases in ChatGPT?** Manually copying and pasting code snippets can be tedious and risks exceeding the token context limits. CodeFusion simplifies this process for you.
-
-**What is CodeFusion?**
-
-It's a tool designed to help you select and merge specific code files from your project into a single, cohesive prompt block. This is crucial for staying within ChatGPT's token context budget.
+Manually copying and pasting code snippets is tedious. CodeFusion allows you to easily select and merge specific code files across your codebase into a single, cohesive prompt block so that you can stay within ChatGPT's token context budget.
 
 **Why use CodeFusion?**
 
