@@ -93,46 +93,56 @@ class FileListPanel extends ConsumerWidget {
     ref.read(expandedFoldersProvider.notifier).state = {...currentSet};
   }
 
-  void handleFileSelection(WidgetRef ref, String filePath) {
+  Future<void> handleFileSelection(WidgetRef ref, String filePath) async {
     final currentSelectedFiles = ref.read(selectedFilesProvider.notifier).state;
 
     if (currentSelectedFiles.contains(filePath)) {
-      _recursiveDeselection(ref, filePath, currentSelectedFiles);
+      await _recursiveDeselection(ref, filePath,
+          currentSelectedFiles); // Assume this is also made async if needed
     } else {
-      _recursiveSelection(ref, filePath, currentSelectedFiles);
+      await _recursiveSelection(ref, filePath, currentSelectedFiles);
     }
 
     // Update the state with the new selection set
     ref.read(selectedFilesProvider.notifier).state = currentSelectedFiles;
-    onSelectionChanged(currentSelectedFiles);
+    onSelectionChanged(
+        currentSelectedFiles); // Ensure this can handle async updates
 
-    _updateEstimatedTokenCount(ref);
+    // Assuming this method exists and is relevant to your logic
+    await _updateEstimatedTokenCount(
+        ref); // Make sure this method properly handles asynchronous operations
   }
 
-  void _recursiveSelection(
-      WidgetRef ref, String filePath, Set<String> selectionSet) {
+  Future<void> _recursiveSelection(
+      WidgetRef ref, String filePath, Set<String> selectionSet) async {
     final isDirectory = FileSystemEntity.isDirectorySync(filePath);
     selectionSet.add(filePath);
 
     if (isDirectory) {
+      // Asynchronously fetch the folder contents.
       final folderContents =
-          ref.read(folderContentsProvider(filePath)).asData?.value ?? [];
+          await ref.read(folderContentsProvider(filePath).future);
       for (final childPath in folderContents) {
-        _recursiveSelection(ref, childPath, selectionSet);
+        await _recursiveSelection(ref, childPath,
+            selectionSet); // Wait for recursive selection to complete
       }
     }
   }
 
-  void _recursiveDeselection(
-      WidgetRef ref, String filePath, Set<String> selectionSet) {
+  Future<void> _recursiveDeselection(
+    WidgetRef ref,
+    String filePath,
+    Set<String> selectionSet,
+  ) async {
     final isDirectory = FileSystemEntity.isDirectorySync(filePath);
     selectionSet.remove(filePath);
 
     if (isDirectory) {
+      // Assuming there's logic here similar to _recursiveSelection for fetching and processing contents
       final folderContents =
-          ref.read(folderContentsProvider(filePath)).asData?.value ?? [];
+          await ref.read(folderContentsProvider(filePath).future);
       for (final childPath in folderContents) {
-        _recursiveDeselection(ref, childPath, selectionSet);
+        await _recursiveDeselection(ref, childPath, selectionSet);
       }
     }
   }

@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:code_fusion/src/custom_colors.dart';
 import 'package:code_fusion/src/home_view/file_list_panel.dart';
 import 'package:code_fusion/src/home_view/state_providers.dart';
 import 'package:code_fusion/src/home_view/utils.dart';
@@ -23,7 +21,6 @@ class HomeView extends ConsumerStatefulWidget {
 }
 
 class HomeViewState extends ConsumerState<HomeView> {
-  List<String> _directories = [];
   Map<String, List<String>> _filesByDirectory = {};
   String _selectedDirectory = '';
 
@@ -193,17 +190,22 @@ class HomeViewState extends ConsumerState<HomeView> {
   }
 
   void _copySelectedFilesToClipboard() async {
+    final settingsController = ref.watch(settingsControllerProvider);
     String combinedContent = '';
     for (var filePath in _selectedFiles) {
-      // No need to extract the file name from the path, as we'll use the full path
       var fileEntity = FileSystemEntity.typeSync(filePath);
       if (fileEntity == FileSystemEntityType.file) {
         try {
           final file = File(filePath);
           String fileContent = await file.readAsString();
-          // Use filePath for START and END markers instead of just the fileName
+          // Determine the path to use based on the user's preference
+          String displayPath = settingsController.pathOption == PathOption.full
+              ? filePath // Use the full path
+              : path.relative(filePath,
+                  from: _selectedDirectory); // Or the relative path
+
           combinedContent +=
-              '### START OF FILE: $filePath ###\n$fileContent\n### END OF FILE: $filePath ###\n\n';
+              '### START OF FILE: $displayPath ###\n$fileContent\n### END OF FILE: $displayPath ###\n\n';
         } catch (e) {
           // Handle the case where the file cannot be read (if necessary)
         }
@@ -214,6 +216,7 @@ class HomeViewState extends ConsumerState<HomeView> {
       setState(() {
         _isCopied = true;
       });
+      // Optionally reset _isCopied flag after a few seconds
       Future.delayed(const Duration(seconds: 2), () {
         setState(() {
           _isCopied = false;

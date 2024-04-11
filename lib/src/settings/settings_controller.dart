@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'settings_service.dart';
 
+enum PathOption {
+  full,
+  relative,
+}
+
 /// A class that many Widgets can interact with to read user settings, update
 /// user settings, or listen to user settings changes.
 ///
@@ -9,6 +14,22 @@ import 'settings_service.dart';
 /// uses the SettingsService to store and retrieve user settings.
 class SettingsController with ChangeNotifier {
   SettingsController(this._settingsService);
+
+  //#region PathOption
+  PathOption _pathOption = PathOption.full; // Default value
+
+  PathOption get pathOption => _pathOption;
+
+  Future<void> updatePathOption(PathOption newPathOption) async {
+    if (_pathOption == newPathOption) return; // No change
+
+    _pathOption = newPathOption;
+    notifyListeners();
+
+    // Persist the new setting
+    await _settingsService.updatePathOption(newPathOption);
+  }
+  //#endregion
 
   // Make SettingsService a private variable so it is not used directly.
   final SettingsService _settingsService;
@@ -25,6 +46,7 @@ class SettingsController with ChangeNotifier {
   /// settings from the service.
   Future<void> loadSettings() async {
     _themeMode = await _settingsService.themeMode();
+    _pathOption = await _settingsService.pathOption();
 
     // Important! Inform listeners a change has occurred.
     notifyListeners();

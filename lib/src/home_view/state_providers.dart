@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:code_fusion/src/home_view/utils.dart';
+import 'package:code_fusion/src/settings/settings_controller.dart';
+import 'package:code_fusion/src/settings/settings_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,4 +52,7 @@ final folderContentsProvider =
 });
 final estimatedTokenCountProvider = StateProvider<int>((ref) {
   return 0;
+});
+final settingsControllerProvider = ChangeNotifierProvider<SettingsController>((ref) {
+  return SettingsController(SettingsService());
 });
