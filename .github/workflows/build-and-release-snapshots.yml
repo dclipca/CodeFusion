@@ -3,25 +3,7 @@ name: Build and Release Flutter Application
 on: [push, pull_request]
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.flutter-action.outputs.CACHE-KEY }}
-      cache-path: ${{ steps.flutter-action.outputs.CACHE-PATH }}
-
-    steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        id: flutter-action
-        with:
-          channel: stable
-          cache: true
-
   build-and-release:
-    needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -39,15 +21,26 @@ jobs:
       - name: Clone repository
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Set up Flutter (Linux and Windows)
+        if: matrix.os != 'macos-latest'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache-key: ${{ needs.setup.outputs.cache-key }}
-          cache-path: ${{ needs.setup.outputs.cache-path }}
+          cache: true
+
+      - name: Manually Install Flutter (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          flutter doctor
 
       - name: Build
         run: ${{ matrix.build-command }}
+
+      - name: Zip artifacts
+        run: |
+          zip -r ${{ matrix.artifact-name }}.zip ./path/to/build/output
 
       - name: Create Release
         id: create_release
@@ -55,8 +48,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
+          tag_name: snapshot-${{ github.run_number }}
+          release_name: Snapshot Release ${{ github.run_number }}
           draft: false
           prerelease: true
 
@@ -66,6 +59,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./path/to/your/build/${{ matrix.artifact-name }}
+          asset_path: ./${{ matrix.artifact-name }}.zip
           asset_name: ${{ matrix.artifact-name }}.zip
           asset_content_type: application/zip
