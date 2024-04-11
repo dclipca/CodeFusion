@@ -9,6 +9,8 @@
 
 # CodeFusion
 
+![Demo](https://github.com/dclipca/CodeFusion/blob/main/demo.gif?raw=true)
+
 Manually copying and pasting code snippets is tedious. CodeFusion allows you to easily select and merge specific code files across your codebase into a single, cohesive prompt block so that you can stay within ChatGPT's token context budget.
 
 **Why use CodeFusion?**
