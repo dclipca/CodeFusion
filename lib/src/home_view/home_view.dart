@@ -195,19 +195,17 @@ class HomeViewState extends ConsumerState<HomeView> {
   void _copySelectedFilesToClipboard() async {
     String combinedContent = '';
     for (var filePath in _selectedFiles) {
-      var fileName = filePath
-          .split(Platform.pathSeparator)
-          .last; // Extract file name from path
+      // No need to extract the file name from the path, as we'll use the full path
       var fileEntity = FileSystemEntity.typeSync(filePath);
       if (fileEntity == FileSystemEntityType.file) {
         try {
           final file = File(filePath);
           String fileContent = await file.readAsString();
-          // Wrap each file content with the START and END markers
+          // Use filePath for START and END markers instead of just the fileName
           combinedContent +=
-              '### START OF FILE: $fileName ###\n$fileContent\n### END OF FILE: $fileName ###\n\n';
+              '### START OF FILE: $filePath ###\n$fileContent\n### END OF FILE: $filePath ###\n\n';
         } catch (e) {
-          // Ignoring files that cannot be read as UTF-8
+          // Handle the case where the file cannot be read (if necessary)
         }
       }
     }

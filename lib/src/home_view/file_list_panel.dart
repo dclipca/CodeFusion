@@ -95,7 +95,6 @@ class FileListPanel extends ConsumerWidget {
 
   void handleFileSelection(WidgetRef ref, String filePath) {
     final currentSelectedFiles = ref.read(selectedFilesProvider.notifier).state;
-    final isDirectory = FileSystemEntity.isDirectorySync(filePath);
 
     if (currentSelectedFiles.contains(filePath)) {
       _recursiveDeselection(ref, filePath, currentSelectedFiles);
@@ -108,33 +107,6 @@ class FileListPanel extends ConsumerWidget {
     onSelectionChanged(currentSelectedFiles);
 
     _updateEstimatedTokenCount(ref);
-  }
-
-  Future<void> _updateEstimatedTokenCount(WidgetRef ref) async {
-    final currentSelectedFiles = ref.read(selectedFilesProvider.state).state;
-    int tokenCount = 0;
-
-    // Use a list of futures to track completion of all asynchronous operations
-    var futures = <Future>[];
-
-    for (var filePath in currentSelectedFiles) {
-      futures.add(Future(() async {
-        if (await isUtf8Encoded(filePath)) {
-          final file = File(filePath);
-          final fileContent = await file.readAsString();
-          tokenCount += estimateTokenCount(fileContent);
-        }
-      }));
-    }
-
-    // Wait for all file processing operations to complete
-    await Future.wait(futures);
-
-    // Optionally add a delay to ensure the state update is the last operation
-    Future.delayed(Duration.zero, () {
-      // Update the estimated token count provider with the new count
-      ref.read(estimatedTokenCountProvider.state).state = tokenCount;
-    });
   }
 
   void _recursiveSelection(
@@ -163,6 +135,33 @@ class FileListPanel extends ConsumerWidget {
         _recursiveDeselection(ref, childPath, selectionSet);
       }
     }
+  }
+
+  Future<void> _updateEstimatedTokenCount(WidgetRef ref) async {
+    final currentSelectedFiles = ref.read(selectedFilesProvider.state).state;
+    int tokenCount = 0;
+
+    // Use a list of futures to track completion of all asynchronous operations
+    var futures = <Future>[];
+
+    for (var filePath in currentSelectedFiles) {
+      futures.add(Future(() async {
+        if (await isUtf8Encoded(filePath)) {
+          final file = File(filePath);
+          final fileContent = await file.readAsString();
+          tokenCount += estimateTokenCount(fileContent);
+        }
+      }));
+    }
+
+    // Wait for all file processing operations to complete
+    await Future.wait(futures);
+
+    // Optionally add a delay to ensure the state update is the last operation
+    Future.delayed(Duration.zero, () {
+      // Update the estimated token count provider with the new count
+      ref.read(estimatedTokenCountProvider.state).state = tokenCount;
+    });
   }
 
   List<Map<String, dynamic>> _generateCombinedFilesList(
