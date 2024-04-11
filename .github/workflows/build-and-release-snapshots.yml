@@ -34,6 +34,10 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Enable Linux Desktop Support
+        if: matrix.os == 'ubuntu-latest'
+        run: flutter config --enable-linux-desktop
+
       - name: Build
         run: ${{ matrix.build-command }}
 
