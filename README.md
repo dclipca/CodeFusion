@@ -11,6 +11,8 @@
 
 https://github.com/dclipca/CodeFusion/assets/47941658/d193a47e-0b4b-46b9-8933-b207e4d42327
 
+Streamline code merging for ChatGPT across large codebases, with token context in mind.
+
 Manually copying and pasting code snippets is tedious. CodeFusion allows you to easily select and merge specific code files across your codebase into a single, cohesive prompt block so that you can stay within ChatGPT's token context budget.
 
 **Why use CodeFusion?**
